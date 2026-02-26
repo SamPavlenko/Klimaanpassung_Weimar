@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Klimaanpassungskonzept Weimar: Bürgerbeteiligung</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+
+body {
+  margin: 0;
+}
+
+#map {
+  height: 100vh;
+}
+
+#formBox {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.2);
+  font-size: 14px;
+  width: 250px;
+}
+
+#saveBtn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0,0,0,0.2);
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="formBox">
+
+<b>Meldung eintragen</b>
+<br><br>
+
+Kategorie:
+<br>
+<select id="category" style="width:100%">
+  <option value="Hitze">Hitze</option>
+  <option value="Starkregen">Starkregen</option>
+  <option value="Hochwasser">Hochwasser</option>
+  <option value="Versiegelung">Versiegelung</option>
+  <option value="Starkwind">Starkwind</option>
+  <option value="Weiteres">Weiteres</option>
+</select>
+
+<br><br>
+
+Beschreibung:
+<br>
+<textarea id="comment" rows="3" style="width:100%"
+placeholder="Text eingeben..."></textarea>
+
+<br>
+
+<button id="saveBtn" disabled>Eintrag speichern</button>
+
+<p id="hint">
+Klicke zuerst auf die Karte - dann speichern.
+</p>
+
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+
+// ================== FIREBASE ==================
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyDMpsYgZ5S27kIY4HYyQ_m5vPdJsID5Otk",
+
+  authDomain: "klimaanpassungweimar.firebaseapp.com",
+
+  projectId: "klimaanpassungweimar",
+
+  storageBucket: "klimaanpassungweimar.firebasestorage.app",
+
+  messagingSenderId: "568463088238",
+
+  appId: "1:568463088238:web:265c42c2acf3c87d40a47f"
+
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ================== MAP ==================
+
+const map = L.map('map').setView([50.585, 11.194], 14);
+
+map.createPane("maskPane");
+map.getPane("maskPane").style.zIndex = 200;
+map.getPane("maskPane").style.pointerEvents = "none";
+  
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: "© OpenStreetMap"
+}).addTo(map);
+
+const markerLayer = L.layerGroup().addTo(map);
+
+let tempMarker = null;
+let selectedLatLng = null;
+let cityBoundary = null;
+
+
+// ================== LOAD CITY BOUNDARY ==================
+
+fetch("weimar.geojson")
+  .then(res => res.json())
+  .then(data => {
+
+    cityGeoJSON = data;
+
+    const cityLayer = L.geoJSON(data, {
+      style: {
+        color: "black",
+        weight: 2,
+        fillOpacity: 0
+      }
+    }).addTo(map);
+
+    map.fitBounds(cityLayer.getBounds());
+
+    createMask(data);
+  });
+
+
+// World mask with hole
+
+function createMask(cityData) {
+
+  const world = turf.polygon([[
+    [-180,-90],
+    [180,-90],
+    [180,90],
+    [-180,90],
+    [-180,-90]
+  ]]);
+
+  let cityUnion = cityData.features[0];
+
+  if (cityData.features.length > 1) {
+    for (let i = 1; i < cityData.features.length; i++) {
+      cityUnion = turf.union(cityUnion, cityData.features[i]);
+    }
+  }
+
+  const difference = turf.difference(world, cityUnion);
+
+  L.geoJSON(difference, {
+    style: {
+      fillColor: "black",
+      fillOpacity: 0.35,
+      stroke: false
+    },
+    interactive: false
+  }).addTo(map);
+}
+
+// ================== COLORS ==================
+
+function getColor(category) {
+
+  if (category === "Hitze") return "orange";
+  if (category === "Starkregen") return "blue";
+  if (category === "Hochwasser") return "brown";
+  if (category === "Versiegelung") return "gray";
+  if (category === "Weiteres") return "green";
+  if (category === "Starkwind") return "yellow";
+
+  return "black";
+}
+
+// ================== DRAW MARKER ==================
+
+function drawMarker(lat, lng, category, comment) {
+
+  const colors = {
+    Hitze: "orange",
+    Starkregen: "blue",
+    Hochwasser: "brown",
+    Versiegelung: "gray",
+    Starkwind: "yellow",
+    Weiteres: "green"
+  };
+
+  L.circleMarker([lat, lng], {
+    radius: 8,
+    fillColor: colors[category] || "black",
+    color: "#000",
+    weight: 1,
+    fillOpacity: 0.8
+  })
+  .bindPopup("<b>Kategorie:</b> " + category +
+             "<br><b>Info:</b> " + comment)
+  .addTo(markerLayer);
+}
+
+// ================== SAVE ==================
+
+document.getElementById("saveBtn").onclick = function() {
+
+  if (!selectedLatLng) return;
+
+  const category = document.getElementById("category").value;
+  const comment = document.getElementById("comment").value;
+
+  if (comment.trim() === "") {
+    alert("Bitte Text eingeben.");
+    return;
+  }
+
+  db.collection("marker").add({
+    lat: selectedLatLng.lat,
+    lng: selectedLatLng.lng,
+    category: category,
+    comment: comment,
+    timestamp: new Date(),
+    approved: false
+  });
+
+  drawMarker(selectedLatLng.lat, selectedLatLng.lng, category, comment);
+
+  map.removeLayer(tempMarker);
+  tempMarker = null;
+  selectedLatLng = null;
+
+  document.getElementById("comment").value = "";
+  document.getElementById("saveBtn").disabled = true;
+  document.getElementById("hint").innerText =
+    "Klicke auf die Karte für neuen Punkt.";
+};
+
+// ================== MAP CLICK ==================
+map.on('click', function(e) {
+
+  if (!cityGeoJSON) return;
+
+  const point = turf.point([e.latlng.lng, e.latlng.lat]);
+
+  let inside = false;
+
+  cityGeoJSON.features.forEach(feature => {
+    if (turf.booleanPointInPolygon(point, feature)) {
+      inside = true;
+    }
+  });
+
+  if (!inside) {
+    alert("Marker nur innerhalb der Stadtgrenze erlaubt.");
+    return;
+  }
+
+  selectedLatLng = e.latlng;
+
+  if (tempMarker) map.removeLayer(tempMarker);
+
+  tempMarker = L.marker(e.latlng).addTo(map);
+
+  document.getElementById("saveBtn").disabled = false;
+  document.getElementById("hint").innerText =
+    "Jetzt Kategorie auswählen und speichern.";
+});
+
+
+// ================== LOAD EXISTING ==================
+db.collection("marker")
+  .where("approved", "==", true)
+  .get()
+  .then(snapshot => {
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      drawMarker(data.lat, data.lng, data.category, data.comment);
+    });
+  });
+
+
+</script>
+</body>
+</html>
