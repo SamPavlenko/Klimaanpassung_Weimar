@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Moderation</title>
+</head>
+
+<body>
+
+<h2>Neue Meldungen</h2>
+
+<ul id="list"></ul>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+
+// ================== PARAMETER  const API_KEY = "{{ API_KEY_PLACEHOLDER }}"; ==================
+
+  
+const firebaseConfig = {
+  apiKey: "AIzaSyDMpsYgZ5S27kIY4HYyQ_m5vPdJsID5Otk",
+  authDomain: "klimaanpassungweimar.firebaseapp.com",
+  projectId: "klimaanpassungweimar"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const list = document.getElementById("list");
+
+loadData();
+
+  function loadData() {
+
+  list.innerHTML = "";
+  
+db.collection("marker")
+    .where("approved", "==", false)
+    .get()
+    .then(snapshot => {
+
+      if (snapshot.empty) {
+        list.innerHTML = "<p>Keine neuen Meldungen.</p>";
+        return;
+      }
+
+      snapshot.forEach(doc => {
+
+        const d = doc.data();
+        const li = document.createElement("li");
+
+        li.innerHTML = `
+          <b>${d.category}</b><br>
+          ${d.comment}<br><br>
+          <button onclick="approve('${doc.id}')">
+            Freigeben
+          </button>
+          <hr>
+        `;
+
+        list.appendChild(li);
+      });
+  });
+
+    }
+
+function approve(id) {
+
+  db.collection("marker").doc(id).update({
+    approved: true
+  })
+  .then(() => {
+    alert("Freigegeben.");
+    loadData();
+  });
+
+}
+
+</script>
+
+</body>
+</html>
