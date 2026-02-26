@@ -233,14 +233,21 @@ document.getElementById("saveBtn").onclick = function() {
     return;
   }
 
-  db.collection("marker").add({
-    lat: selectedLatLng.lat,
-    lng: selectedLatLng.lng,
-    category: category,
-    comment: comment,
-    timestamp: new Date(),
-    approved: false
-  });
+db.collection("marker").add({
+  lat: selectedLatLng.lat,
+  lng: selectedLatLng.lng,
+  category: category,
+  comment: comment,
+  timestamp: new Date(),
+  approved: false
+})
+.then(() => {
+  console.log("Saved to Firestore!");
+})
+.catch((error) => {
+  console.error("Error saving:", error);
+  alert("Fehler beim Speichern. Prüfe Firestore-Regeln.");
+});
 
   drawMarker(selectedLatLng.lat, selectedLatLng.lng, category, comment);
 
