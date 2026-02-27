@@ -208,7 +208,7 @@ function getColor(category) {
 
 // ================== DRAW MARKER ==================
 
-function drawMarker(docId, lat, lng, category, comment, likes) {
+function drawMarker(docId, lat, lng, category, comment, likes, likedBy) {
 
   const colors = {
     Hitze: "orange",
@@ -218,6 +218,13 @@ function drawMarker(docId, lat, lng, category, comment, likes) {
     Starkwind: "yellow",
     Weiteres: "green"
   };
+
+  const user = firebase.auth().currentUser;
+  const userId = user ? user.uid : null;
+
+  const hasLiked = userId && likedBy && likedBy.includes(userId);
+
+  const buttonLabel = hasLiked ? "Unlike 👎" : "Like 👍";
 
   L.circleMarker([lat, lng], {
     radius: 8,
@@ -230,12 +237,10 @@ function drawMarker(docId, lat, lng, category, comment, likes) {
     "<b>Kategorie:</b> " + category +
     "<br><b>Info:</b> " + comment +
     "<br><br>👍 Likes: " + (likes || 0) +
-    "<br><button onclick=\"likeMarker('" + docId + "')\">Like</button>"
+    "<br><button onclick=\"toggleLike('" + docId + "')\">" + buttonLabel + "</button>"
   )
   .addTo(markerLayer);
 }
-
-// ================== SAVE ==================
 
 // ================== SAVE ==================
 
@@ -343,7 +348,8 @@ db.collection("marker")
         data.lng,
         data.category,
         data.comment,
-        data.likes
+        data.likes,
+        data.likedBy
       );
     });
 
@@ -351,28 +357,32 @@ db.collection("marker")
 
 // ================== LIKE FUNCTION ==================
 
-function likeMarker(id) {
+function toggleLike(id) {
 
-  const user = auth.currentUser;
+  const user = firebase.auth().currentUser;
   if (!user) return;
 
   const userId = user.uid;
-
   const ref = db.collection("marker").doc(id);
 
   ref.get().then(doc => {
 
     const data = doc.data();
+    const hasLiked = data.likedBy && data.likedBy.includes(userId);
 
-    if (data.likedBy && data.likedBy.includes(userId)) {
-      alert("Du hast diesen Beitrag bereits geliked.");
-      return;
+    if (hasLiked) {
+      // 👎 Unlike
+      ref.update({
+        likes: firebase.firestore.FieldValue.increment(-1),
+        likedBy: firebase.firestore.FieldValue.arrayRemove(userId)
+      });
+    } else {
+      // 👍 Like
+      ref.update({
+        likes: firebase.firestore.FieldValue.increment(1),
+        likedBy: firebase.firestore.FieldValue.arrayUnion(userId)
+      });
     }
-
-    ref.update({
-      likes: firebase.firestore.FieldValue.increment(1),
-      likedBy: firebase.firestore.FieldValue.arrayUnion(userId)
-    });
 
   });
 
