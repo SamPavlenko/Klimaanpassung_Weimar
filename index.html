@@ -225,6 +225,8 @@ function drawMarker(docId, lat, lng, category, comment, likes) {
 
 // ================== SAVE ==================
 
+// ================== SAVE ==================
+
 document.getElementById("saveBtn").onclick = function() {
 
   if (!selectedLatLng) return;
@@ -237,33 +239,45 @@ document.getElementById("saveBtn").onclick = function() {
     return;
   }
 
-db.collection("marker").add({
-  lat: selectedLatLng.lat,
-  lng: selectedLatLng.lng,
-  category: category,
-  comment: comment,
-  timestamp: new Date(),
-  approved: false,
-  likes: 0
-})
-.then(() => {
-  console.log("Saved to Firestore!");
-})
-.catch((error) => {
-  console.error("Error saving:", error);
-  alert("Fehler beim Speichern. Prüfe Firestore-Regeln.");
-});
+  db.collection("marker").add({
+    lat: selectedLatLng.lat,
+    lng: selectedLatLng.lng,
+    category: category,
+    comment: comment,
+    timestamp: new Date(),
+    approved: false,
+    likes: 0
+  })
+  .then((docRef) => {
 
-  drawMarker(selectedLatLng.lat, selectedLatLng.lng, category, comment);
+    console.log("Saved to Firestore!");
 
-  map.removeLayer(tempMarker);
-  tempMarker = null;
-  selectedLatLng = null;
+    // ✅ Marker sofort anzeigen (auch wenn noch nicht approved)
+    drawMarker(
+      docRef.id,
+      selectedLatLng.lat,
+      selectedLatLng.lng,
+      category,
+      comment,
+      0
+    );
 
-  document.getElementById("comment").value = "";
-  document.getElementById("saveBtn").disabled = true;
-  document.getElementById("hint").innerText =
-    "Klicke auf die Karte für neuen Punkt.";
+    // Formular zurücksetzen
+    if (tempMarker) map.removeLayer(tempMarker);
+    tempMarker = null;
+    selectedLatLng = null;
+
+    document.getElementById("comment").value = "";
+    document.getElementById("saveBtn").disabled = true;
+    document.getElementById("hint").innerText =
+      "Klicke auf die Karte für neuen Punkt.";
+
+  })
+  .catch((error) => {
+    console.error("Error saving:", error);
+    alert("Fehler beim Speichern. Prüfe Firestore-Regeln.");
+  });
+
 };
 
 // ================== MAP CLICK ==================
@@ -303,10 +317,13 @@ map.on('click', function(e) {
 
 db.collection("marker")
   .where("approved", "==", true)
-  .get()
-  .then(snapshot => {
+  .onSnapshot(snapshot => {
+
+    markerLayer.clearLayers();
+
     snapshot.forEach(doc => {
       const data = doc.data();
+
       drawMarker(
         doc.id,
         data.lat,
@@ -316,6 +333,7 @@ db.collection("marker")
         data.likes
       );
     });
+
   });
 
 // ================== LIKE FUNCTION ==================
