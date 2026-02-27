@@ -54,7 +54,6 @@ Kategorie:
   <option value="Hitze">Hitze</option>
   <option value="Starkregen">Starkregen</option>
   <option value="Hochwasser">Hochwasser</option>
-  <option value="Versiegelung">Versiegelung</option>
   <option value="Starkwind">Starkwind</option>
   <option value="Weiteres">Weiteres</option>
 </select>
@@ -199,7 +198,6 @@ function getColor(category) {
   if (category === "Hitze") return "orange";
   if (category === "Starkregen") return "blue";
   if (category === "Hochwasser") return "brown";
-  if (category === "Versiegelung") return "gray";
   if (category === "Weiteres") return "green";
   if (category === "Starkwind") return "yellow";
 
@@ -214,7 +212,6 @@ function drawMarker(docId, lat, lng, category, comment, likes, likedBy) {
     Hitze: "orange",
     Starkregen: "blue",
     Hochwasser: "brown",
-    Versiegelung: "gray",
     Starkwind: "yellow",
     Weiteres: "green"
   };
