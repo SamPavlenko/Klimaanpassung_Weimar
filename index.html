@@ -196,7 +196,7 @@ function getColor(category) {
 
 // ================== DRAW MARKER ==================
 
-function drawMarker(lat, lng, category, comment) {
+function drawMarker(docId, lat, lng, category, comment, likes) {
 
   const colors = {
     Hitze: "orange",
@@ -214,8 +214,12 @@ function drawMarker(lat, lng, category, comment) {
     weight: 1,
     fillOpacity: 0.8
   })
-  .bindPopup("<b>Kategorie:</b> " + category +
-             "<br><b>Info:</b> " + comment)
+  .bindPopup(
+    "<b>Kategorie:</b> " + category +
+    "<br><b>Info:</b> " + comment +
+    "<br><br>👍 Likes: " + (likes || 0) +
+    "<br><button onclick=\"likeMarker('" + docId + "')\">Like</button>"
+  )
   .addTo(markerLayer);
 }
 
@@ -239,7 +243,8 @@ db.collection("marker").add({
   category: category,
   comment: comment,
   timestamp: new Date(),
-  approved: false
+  approved: false,
+  likes: 0
 })
 .then(() => {
   console.log("Saved to Firestore!");
@@ -294,17 +299,41 @@ map.on('click', function(e) {
 
 
 // ================== LOAD EXISTING ==================
+
+
 db.collection("marker")
   .where("approved", "==", true)
   .get()
   .then(snapshot => {
     snapshot.forEach(doc => {
       const data = doc.data();
-      drawMarker(data.lat, data.lng, data.category, data.comment);
+      drawMarker(
+        doc.id,
+        data.lat,
+        data.lng,
+        data.category,
+        data.comment,
+        data.likes
+      );
     });
   });
 
+// ================== LIKE FUNCTION ==================
 
+function likeMarker(id) {
+
+  db.collection("marker").doc(id).update({
+    likes: firebase.firestore.FieldValue.increment(1)
+  })
+  .then(() => {
+    console.log("Like erhöht");
+  })
+  .catch(error => {
+    console.error("Fehler beim Liken:", error);
+  });
+
+}
+  
 </script>
 </body>
 </html>
